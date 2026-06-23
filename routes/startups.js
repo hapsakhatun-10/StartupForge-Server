@@ -2,7 +2,7 @@ const express = require("express");
 const { ObjectId } = require("mongodb");
 const router = express.Router();
 
-module.exports = function (startupCollection) {
+module.exports = function (startupCollection, opportunityCollection, applicationCollection) {
     // GET /startup — list (array by default, paginated if ?page is set)
     router.get("/", async (req, res) => {
         try {
@@ -35,6 +35,30 @@ module.exports = function (startupCollection) {
 
             const result = await startupCollection.find(query).toArray();
             res.json(result);
+        } catch (error) {
+            res.status(500).json({ message: "Server error", error: error.message });
+        }
+    });
+
+    // GET /startup/analytics/:founder_email — per-startup application stats for chart
+    router.get("/analytics/:founder_email", async (req, res) => {
+        try {
+            const startups = await startupCollection.find({ founder_email: req.params.founder_email }).toArray();
+            const data = await Promise.all(
+                startups.map(async (s) => {
+                    const opps = await opportunityCollection.find({ startup_id: s._id.toString() }).toArray();
+                    const oppIds = opps.map((o) => o._id.toString());
+                    const apps = await applicationCollection.find({ Opportunity_id: { $in: oppIds } }).toArray();
+                    return {
+                        startupName: s.startup_name,
+                        total: apps.length,
+                        pending: apps.filter((a) => a.Status === "pending").length,
+                        accepted: apps.filter((a) => a.Status === "accepted").length,
+                        rejected: apps.filter((a) => a.Status === "rejected").length,
+                    };
+                })
+            );
+            res.json(data);
         } catch (error) {
             res.status(500).json({ message: "Server error", error: error.message });
         }

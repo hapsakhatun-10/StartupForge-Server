@@ -49,7 +49,7 @@ async function startServer() {
     await client.db("admin").command({ ping: 1 });
     console.log("Connected to MongoDB!");
 
-    app.use("/startup", require("./routes/startups")(startupCollection));
+    app.use("/startup", require("./routes/startups")(startupCollection, opportunityCollection, applicationCollection));
     app.use("/opportunity", require("./routes/opportunities")(opportunityCollection));
     app.use("/application", require("./routes/applications")(applicationCollection, notificationCollection));
     app.use("/admin", require("./routes/admin")(startupCollection, opportunityCollection, applicationCollection, userCollection, paymentCollection));
