@@ -9,20 +9,31 @@ module.exports = function (startupCollection) {
             if (!startupCollection)
                 return res.status(503).json({ message: "DB not ready" });
 
+            let query = {};
+            if (req.query.q) {
+                query.name = { $regex: req.query.q, $options: "i" };
+            }
+            if (req.query.industry) {
+                query.industry = { $in: req.query.industry.split(",") };
+            }
+            if (req.query.status) {
+                query.status = req.query.status;
+            }
+
             if (req.query.page) {
                 const page = parseInt(req.query.page) || 1;
                 const limit = parseInt(req.query.limit) || 10;
                 const skip = (page - 1) * limit;
-                const total = await startupCollection.countDocuments({});
+                const total = await startupCollection.countDocuments(query);
                 const data = await startupCollection
-                    .find({})
+                    .find(query)
                     .skip(skip)
                     .limit(limit)
                     .toArray();
                 return res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
             }
 
-            const result = await startupCollection.find({}).toArray();
+            const result = await startupCollection.find(query).toArray();
             res.json(result);
         } catch (error) {
             res.status(500).json({ message: "Server error", error: error.message });
