@@ -77,7 +77,22 @@ module.exports = function (paymentCollection) {
                 { user_email: req.params.email, payment_status: "completed" },
                 { sort: { paid_at: -1 } }
             );
-            res.json({ isPremium: !!payment });
+            if (payment) return res.json({ isPremium: true, transaction_id: payment.transaction_id, paid_at: payment.paid_at });
+            res.json({ isPremium: false });
+        } catch (error) {
+            res.status(500).json({ message: "Server error", error: error.message });
+        }
+    });
+
+    // GET /payment/transactions — list all transactions (admin)
+    router.get("/transactions", async (req, res) => {
+        try {
+            const page = parseInt(req.query.page) || 1;
+            const limit = parseInt(req.query.limit) || 20;
+            const skip = (page - 1) * limit;
+            const total = await paymentCollection.countDocuments({});
+            const data = await paymentCollection.find({}).sort({ paid_at: -1 }).skip(skip).limit(limit).toArray();
+            res.json({ data, total, page, totalPages: Math.ceil(total / limit) });
         } catch (error) {
             res.status(500).json({ message: "Server error", error: error.message });
         }
