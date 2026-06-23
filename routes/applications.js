@@ -2,7 +2,7 @@ const express = require('express');
 const { ObjectId } = require('mongodb');
 const router = express.Router();
 
-module.exports = function (applicationCollection) {
+module.exports = function (applicationCollection, notificationCollection) {
 
     router.get("/", async (req, res) => {
         try {
@@ -39,11 +39,22 @@ module.exports = function (applicationCollection) {
             if (!["pending", "accepted", "rejected"].includes(Status)) {
                 return res.status(400).json({ message: "Invalid status" });
             }
+            const application = await applicationCollection.findOne({ _id: new ObjectId(req.params.id) });
             const result = await applicationCollection.updateOne(
                 { _id: new ObjectId(req.params.id) },
                 { $set: { Status } }
             );
             if (result.matchedCount === 0) return res.status(404).json({ message: "Not found" });
+            if (notificationCollection && (Status === "accepted" || Status === "rejected")) {
+                await notificationCollection.insertOne({
+                    userEmail: application.Applicant_email,
+                    message: `Your application has been ${Status}`,
+                    type: "application_status",
+                    read: false,
+                    createdAt: new Date(),
+                    applicationId: req.params.id,
+                });
+            }
             res.json({ message: `Application ${Status}` });
         } catch (error) {
             res.status(500).json({ message: "Server error", error: error.message });

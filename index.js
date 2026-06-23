@@ -43,15 +43,17 @@ async function startServer() {
     const applicationCollection = db.collection("applications");
     const paymentCollection = db.collection("payments");
     const userCollection = db.collection("user"); // Better Auth users
+    const notificationCollection = db.collection("notifications");
 
     await client.db("admin").command({ ping: 1 });
     console.log("Connected to MongoDB!");
 
     app.use("/startup", require("./routes/startups")(startupCollection));
     app.use("/opportunity", require("./routes/opportunities")(opportunityCollection));
-    app.use("/application", require("./routes/applications")(applicationCollection));
+    app.use("/application", require("./routes/applications")(applicationCollection, notificationCollection));
     app.use("/admin", require("./routes/admin")(startupCollection, opportunityCollection, applicationCollection, userCollection, paymentCollection));
     app.use("/payment", require("./routes/payments")(paymentCollection));
+    app.use("/notification", require("./routes/notifications")(notificationCollection));
 
     const server = app.listen(PORT, () => {
         console.log(`Server is Running on port ${PORT}`);
