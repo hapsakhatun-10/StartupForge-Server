@@ -2,7 +2,7 @@ const express = require('express');
 const { ObjectId } = require('mongodb');
 const router = express.Router();
 
-module.exports = function (applicationCollection, notificationCollection) {
+module.exports = function (applicationCollection, notificationCollection, opportunityCollection, userCollection) {
 
     router.get("/", async (req, res) => {
         try {
@@ -56,6 +56,28 @@ module.exports = function (applicationCollection, notificationCollection) {
                 });
             }
             res.json({ message: `Application ${Status}` });
+        } catch (error) {
+            res.status(500).json({ message: "Server error", error: error.message });
+        }
+    });
+
+    // GET /application/match/:opportunity_id/:email — calculate skill match %
+    router.get("/match/:opportunity_id/:email", async (req, res) => {
+        try {
+            const [user, opportunity] = await Promise.all([
+                userCollection.findOne({ email: req.params.email }),
+                opportunityCollection.findOne({ _id: new ObjectId(req.params.opportunity_id) }),
+            ]);
+            if (!user || !opportunity) {
+                return res.json({ matchPercentage: 0, matchedSkills: [], missingSkills: [] });
+            }
+            const userSkills = (user.skills || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+            const requiredSkills = (opportunity.required_skills || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+            if (requiredSkills.length === 0) return res.json({ matchPercentage: 100, matchedSkills: [], missingSkills: [] });
+            const matchedSkills = userSkills.filter((s) => requiredSkills.includes(s));
+            const missingSkills = requiredSkills.filter((s) => !userSkills.includes(s));
+            const matchPercentage = Math.round((matchedSkills.length / requiredSkills.length) * 100);
+            res.json({ matchPercentage, matchedSkills, missingSkills, userSkills: userSkills, requiredSkills: requiredSkills });
         } catch (error) {
             res.status(500).json({ message: "Server error", error: error.message });
         }

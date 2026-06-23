@@ -51,7 +51,7 @@ async function startServer() {
 
     app.use("/startup", require("./routes/startups")(startupCollection, opportunityCollection, applicationCollection));
     app.use("/opportunity", require("./routes/opportunities")(opportunityCollection));
-    app.use("/application", require("./routes/applications")(applicationCollection, notificationCollection));
+    app.use("/application", require("./routes/applications")(applicationCollection, notificationCollection, opportunityCollection, userCollection));
     app.use("/admin", require("./routes/admin")(startupCollection, opportunityCollection, applicationCollection, userCollection, paymentCollection));
     app.use("/payment", require("./routes/payments")(paymentCollection));
     app.use("/notification", require("./routes/notifications")(notificationCollection));
