@@ -58,4 +58,10 @@ app.get("/health", (req, res) => {
     res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
 });
 
+// Global error handler
+app.use((err, req, res, next) => {
+    console.error("Unhandled error:", err);
+    res.status(500).json({ error: "Internal server error" });
+});
+
 startServer().catch(console.dir);
