@@ -1,12 +1,18 @@
 const express = require("express");
 const { ObjectId } = require("mongodb");
-const { verifyToken, requireRole } = require("../middleware/auth");
 const router = express.Router();
 
 module.exports = function (startupCollection, opportunityCollection, applicationCollection, userCollection, paymentCollection) {
 
-    // All admin routes require authentication + admin role
-    router.use(verifyToken, requireRole("admin"));
+    // Middleware: verify admin via Better Auth session stored in DB
+    router.use(async (req, res, next) => {
+        const email = req.headers["x-user-email"];
+        if (!email) return res.status(401).json({ message: "Access denied. No email header." });
+        const user = await userCollection.findOne({ email });
+        if (!user || user.role !== "admin") return res.status(403).json({ message: "Access denied. Not an admin." });
+        req.adminUser = user;
+        next();
+    });
 
     // GET /admin/stats — overview counts
     router.get("/stats", async (req, res) => {
