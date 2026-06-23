@@ -9,8 +9,14 @@ const uri = process.env.MONGODB_URI;
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+const allowedOrigins = process.env.CORS_ORIGIN || "http://localhost:3000";
+app.use(cors({ origin: allowedOrigins.split(","), credentials: true }));
 app.use(express.json({ limit: "10mb" }));
+
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    next();
+});
 
 const client = new MongoClient(uri, {
     serverApi: {
