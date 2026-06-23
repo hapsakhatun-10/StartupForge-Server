@@ -5,6 +5,14 @@ const { MongoClient, ServerApiVersion } = require("mongodb");
 
 dotenv.config();
 
+const requiredEnv = ["MONGODB_URI"];
+for (const env of requiredEnv) {
+    if (!process.env[env]) {
+        console.error(`Missing required environment variable: ${env}`);
+        process.exit(1);
+    }
+}
+
 const uri = process.env.MONGODB_URI;
 const app = express();
 const PORT = process.env.PORT || 5000;
