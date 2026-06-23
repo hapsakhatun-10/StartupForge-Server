@@ -45,7 +45,11 @@ async function startServer() {
 }
 
 app.get("/", (req, res) => {
-    res.send("Server is running fine!");
+    res.json({ status: "ok", service: "StartupForge API", version: "1.0.0" });
+});
+
+app.get("/health", (req, res) => {
+    res.json({ status: "ok", uptime: process.uptime(), timestamp: Date.now() });
 });
 
 startServer().catch(console.dir);
