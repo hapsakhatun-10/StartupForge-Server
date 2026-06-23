@@ -53,9 +53,18 @@ async function startServer() {
     app.use("/admin", require("./routes/admin")(startupCollection, opportunityCollection, applicationCollection, userCollection, paymentCollection));
     app.use("/payment", require("./routes/payments")(paymentCollection));
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
         console.log(`Server is Running on port ${PORT}`);
     });
+
+    const gracefulShutdown = async () => {
+        console.log("Shutting down gracefully...");
+        server.close();
+        await client.close();
+        process.exit(0);
+    };
+    process.on("SIGINT", gracefulShutdown);
+    process.on("SIGTERM", gracefulShutdown);
 }
 
 app.get("/", (req, res) => {
