@@ -101,6 +101,16 @@ module.exports = function (opportunityCollection) {
         }
     });
 
+    // GET /opportunity/count — total count
+    router.get("/count", async (req, res) => {
+        try {
+            const total = await opportunityCollection.countDocuments({});
+            res.json({ total });
+        } catch (error) {
+            res.status(500).json({ message: "Server error", error: error.message });
+        }
+    });
+
     router.get("/:id", async (req, res) => {
         try {
             if (!opportunityCollection)
