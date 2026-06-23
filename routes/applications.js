@@ -20,7 +20,11 @@ module.exports = function (applicationCollection) {
     router.post("/", async (req, res) => {
         try {
             if (!applicationCollection) return res.status(503).json({ message: "DB not ready" });
-            const data = { ...req.body, Status: "pending", applied_at: new Date() };
+            const { Opportunity_id, Applicant_email, Name, Message } = req.body;
+            if (!Opportunity_id || !Applicant_email || !Name) {
+                return res.status(400).json({ message: "Missing required fields: Opportunity_id, Applicant_email, Name" });
+            }
+            const data = { Opportunity_id, Applicant_email, Name, Message: Message || "", Status: "pending", applied_at: new Date() };
             const result = await applicationCollection.insertOne(data);
             res.status(201).json({ message: "Application submitted", id: result.insertedId });
         } catch (error) {
