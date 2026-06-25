@@ -1,4 +1,5 @@
 const express = require("express");
+const Stripe = require("stripe");
 const dotenv = require("dotenv");
 const cors = require("cors");
 const { MongoClient, ServerApiVersion } = require("mongodb");
@@ -16,9 +17,42 @@ for (const env of requiredEnv) {
 const uri = process.env.MONGODB_URI;
 const app = express();
 const PORT = process.env.PORT || 5000;
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+
 
 const allowedOrigins = process.env.CORS_ORIGIN || "http://localhost:3000";
 app.use(cors({ origin: allowedOrigins.split(","), credentials: true }));
+
+// Stripe webhook — needs raw body, must be before express.json()
+app.post("/payment/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+        event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        try {
+            const wb = client.db("StartupForge");
+            await wb.collection("payments").insertOne({
+                user_email: session.customer_details?.email || "unknown",
+                amount: session.amount_total / 100,
+                transaction_id: session.payment_intent,
+                payment_status: "completed",
+                paid_at: new Date(),
+            });
+            console.log(`Webhook: payment recorded for ${session.customer_details?.email}`);
+        } catch (err) {
+            console.error("Webhook error recording payment:", err);
+        }
+    }
+
+    res.json({ received: true });
+});
+
 app.use(express.json({ limit: "10mb" }));
 
 app.use((req, res, next) => {
@@ -50,7 +84,7 @@ async function startServer() {
     console.log("Connected to MongoDB!");
 
     app.use("/startup", require("./routes/startups")(startupCollection, opportunityCollection, applicationCollection));
-    app.use("/opportunity", require("./routes/opportunities")(opportunityCollection));
+    app.use("/opportunity", require("./routes/opportunities")(opportunityCollection, startupCollection, paymentCollection));
     app.use("/application", require("./routes/applications")(applicationCollection, notificationCollection, opportunityCollection, userCollection));
     app.use("/admin", require("./routes/admin")(startupCollection, opportunityCollection, applicationCollection, userCollection, paymentCollection));
     app.use("/payment", require("./routes/payments")(paymentCollection));

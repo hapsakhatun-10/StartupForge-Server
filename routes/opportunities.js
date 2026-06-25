@@ -2,7 +2,9 @@ const express = require("express");
 const { ObjectId } = require("mongodb");
 const router = express.Router();
 
-module.exports = function (opportunityCollection) {
+const FREE_TIER_LIMIT = 3;
+
+module.exports = function (opportunityCollection, startupCollection, paymentCollection) {
     // GET /opportunity — list (array by default, paginated if ?page is set)
     router.get("/", async (req, res) => {
         try {
@@ -129,7 +131,43 @@ module.exports = function (opportunityCollection) {
         try {
             if (!opportunityCollection)
                 return res.status(503).json({ message: "DB not ready" });
-            const data = { ...req.body, createdAt: new Date() };
+
+            const { startup_id, founder_email } = req.body;
+            if (!startup_id || !founder_email) {
+                return res.status(400).json({ message: "startup_id and founder_email are required" });
+            }
+
+            // verify the startup belongs to this founder
+            const startup = await startupCollection.findOne({ _id: new ObjectId(startup_id) });
+            if (!startup) {
+                return res.status(404).json({ message: "Startup not found" });
+            }
+            if (startup.founder_email !== founder_email) {
+                return res.status(403).json({ message: "You do not own this startup" });
+            }
+
+            // count founder's existing opportunities
+            const founderStartupIds = await startupCollection
+                .find({ founder_email }, { projection: { _id: 1 } })
+                .toArray();
+            const ids = founderStartupIds.map((s) => s._id.toString());
+            const currentCount = await opportunityCollection.countDocuments({
+                startup_id: { $in: ids },
+            });
+
+            // check premium
+            const premium = await paymentCollection.findOne(
+                { user_email: founder_email, payment_status: "completed" },
+                { sort: { paid_at: -1 } }
+            );
+
+            if (!premium && currentCount >= FREE_TIER_LIMIT) {
+                return res.status(403).json({
+                    message: `You've used all ${FREE_TIER_LIMIT} free slots. Upgrade to Premium to post unlimited opportunities.`,
+                });
+            }
+
+            const data = { ...req.body, founder_email, createdAt: new Date() };
             const result = await opportunityCollection.insertOne(data);
             res
                 .status(201)

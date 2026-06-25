@@ -1,12 +1,11 @@
 const express = require("express");
-const { verifyToken } = require("../middleware/auth");
 const router = express.Router();
 
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 module.exports = function (paymentCollection) {
     // POST /payment/create-checkout — create Stripe checkout session
-    router.post("/create-checkout", verifyToken, async (req, res) => {
+    router.post("/create-checkout", async (req, res) => {
         try {
             const { user_email } = req.body;
 

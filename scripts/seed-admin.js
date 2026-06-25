@@ -1,42 +1,37 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
-const crypto = require("crypto");
-require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
+/**
+ * Seed script for the admin user.
+ *
+ * NOTE: This script no longer inserts directly into MongoDB (Better Auth
+ * manages the user collection and uses its own password hashing). Instead,
+ * it makes an HTTP request to the Next.js setup endpoint, which creates
+ * the admin via Better Auth's API with proper password hashing.
+ *
+ * Usage:
+ *   1. Start the client dev server: npm run dev (in startup-forge-client)
+ *   2. Run this script:          node scripts/seed-admin.js
+ */
+
+const http = require("http");
 
 async function seed() {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) {
-        console.error("MONGODB_URI not set in .env");
-        process.exit(1);
-    }
-
-    const client = new MongoClient(uri, {
-        serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true },
+    const res = await new Promise((resolve, reject) => {
+        http.get("http://localhost:3000/api/setup/seed", (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => resolve({ status: res.statusCode, body: data }));
+        }).on("error", reject);
     });
 
-    await client.connect();
-    const db = client.db("StartupForge");
-    const users = db.collection("user");
+    const json = JSON.parse(res.body);
+    console.log(`[${res.status}] ${json.message || json.error}`);
 
-    const existing = await users.findOne({ email: "admin@startupforge.com" });
-    if (existing) {
-        console.log("Admin user already exists.");
-        await client.close();
-        return;
+    if (json.message) {
+        console.log("\nLog in at http://localhost:3000/login");
     }
-
-    const passwordHash = crypto.createHash("sha256").update("Admin@123").digest("hex");
-
-    await users.insertOne({
-        name: "Admin",
-        email: "admin@startupforge.com",
-        password: passwordHash,
-        role: "admin",
-        emailVerified: true,
-        createdAt: new Date(),
-    });
-
-    console.log("Admin user created: admin@startupforge.com / Admin@123");
-    await client.close();
 }
 
-seed().catch(console.error);
+seed().catch((err) => {
+    console.error("Failed to seed admin. Is the client dev server running on port 3000?");
+    console.error(err);
+    process.exit(1);
+});
